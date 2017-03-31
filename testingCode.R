@@ -10,10 +10,11 @@ library(merTools)
 
 ### cheat sheet:
 ## x:  an lmer object
+## facet:  the level of generalization you wish to assess (ordered in the lmer object)
 
-lmerICCest <- function(x){
+lmerICCest <- function(x,facet=1){
   tmp <- as.data.frame(VarCorr(x))
-  out <- round(tmp$vcov[1]/sum(tmp$vcov[c(1,nrow(tmp))]),3)
+  out <- round(tmp$vcov[facet]/sum(tmp$vcov[c(1,nrow(tmp))]),3)
   return(out)
 }
 
@@ -148,3 +149,17 @@ lmerICCest(lme2.a)
 lme2.b <- lmer(popular~Cextrav + Csex + Ctexp + Cextrav:Ctexp + Csex:Ctexp + (Cextrav + Csex | class),data=dat)
 summary(lme2.b)
 lmerICCest(lme2.b)
+
+
+################################ BEGIN HERE ON 3/31/17 ############################
+## create some bogus data to begin our adventure...
+
+df <- data.frame(idROW=1:120,id=as.factor(sort(rep(1:10,12))),f1=gl(2,6,120),f2=as.factor(sort(rep(1:6,20))),value=sort(rnorm(120)))
+library(lme4)
+lm0 <- lmer(value~1 + (1|id) + (1|f1) + (1|f2),data=df)
+lmerICCest(lm0,1)
+lmerICCest(lm0,2)
+lmerICCest(lm0,3)
+
+
+
