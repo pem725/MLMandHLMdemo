@@ -12,9 +12,9 @@ library(merTools)
 ## x:  an lmer object
 ## facet:  the level of generalization you wish to assess (ordered in the lmer object)
 
-lmerICCest <- function(x,facet=1){
-  tmp <- as.data.frame(VarCorr(x))
-  out <- round(tmp$vcov[facet]/sum(tmp$vcov[c(1,nrow(tmp))]),3)
+lmerICCest <- function(x,facet=NULL){
+  tmp <- as.data.frame(VarCorr(x))[,c("grp","vcov")]
+  out <- round(tmp$vcov[!is.na(match(tmp$grp,facet))]/sum(tmp$vcov),2)
   return(out)
 }
 
@@ -154,12 +154,41 @@ lmerICCest(lme2.b)
 ################################ BEGIN HERE ON 3/31/17 ############################
 ## create some bogus data to begin our adventure...
 
-df <- data.frame(idROW=1:120,id=as.factor(sort(rep(1:10,12))),f1=gl(2,6,120),f2=as.factor(sort(rep(1:6,20))),value=sort(rnorm(120)))
+df <- data.frame(idROW=1:120,id=as.factor(sort(rep(1:10,12))),f1=gl(2,6,120),f2=as.factor(sort(rep(1:6,20))))
+df$y1=sort(rnorm(120))
+df$y2 <- as.numeric(as.character(df$f1))+rnorm(120)
+df$y3 <- as.numeric(as.character(df$f2))+rnorm(120)
+
 library(lme4)
-lm0 <- lmer(value~1 + (1|id) + (1|f1) + (1|f2),data=df)
-lmerICCest(lm0,1)
-lmerICCest(lm0,2)
-lmerICCest(lm0,3)
+library(ggplot2)
+lm1 <- lmer(y1~1 + (1|id) + (1|f1) + (1|f2),data=df)
+summary(lm1)
+lmerICCest(lm1,"id")
+ggplot(df,aes(x=id,y=y1)) + geom_boxplot(aes(col=id))
+lmerICCest(lm1,"f1")
+ggplot(df,aes(x=f1,y=y1)) + geom_boxplot(aes(col=f1))
+lmerICCest(lm1,"f2")
+ggplot(df,aes(x=f2,y=y1)) + geom_boxplot(aes(col=f2))
+
+
+
+lm2 <- lmer(y2~1 + (1|id) + (1|f1) + (1|f2),data=df)
+lmerICCest(lm2,"id")
+ggplot(df,aes(x=id,y=y2)) + geom_boxplot(aes(col=id))
+lmerICCest(lm2,"f1")
+ggplot(df,aes(x=f1,y=y2)) + geom_boxplot(aes(col=f1))
+lmerICCest(lm2,"f2")
+ggplot(df,aes(x=f2,y=y2)) + geom_boxplot(aes(col=f2))
+
+lm3 <- lmer(y3~1 + (1|id) + (1|f1) + (1|f2),data=df)
+lmerICCest(lm3,"id")
+ggplot(df,aes(x=id,y=y3)) + geom_boxplot(aes(col=id))
+lmerICCest(lm3,"f1")
+ggplot(df,aes(x=f1,y=y3)) + geom_boxplot(aes(col=f1))
+lmerICCest(lm3,"f2")
+ggplot(df,aes(x=f2,y=y3)) + geom_boxplot(aes(col=f2))
+
+
 
 
 
