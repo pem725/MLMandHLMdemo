@@ -309,4 +309,3 @@ anova(lmer1,lmer2c)
 
 ## your homework:  Figure out the formulas above.
 
-###testing
