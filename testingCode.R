@@ -308,3 +308,5 @@ lmer2c <- lmer(y~ (time|id),data=dat)
 anova(lmer1,lmer2c)
 
 ## your homework:  Figure out the formulas above.
+
+###testing
