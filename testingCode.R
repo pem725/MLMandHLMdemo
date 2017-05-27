@@ -154,8 +154,8 @@ lmerICCest(lme2.b)
 ################################ BEGIN HERE ON 3/31/17 ############################
 ## create some bogus data to begin our adventure...
 
-df <- data.frame(idROW=1:120,id=as.factor(sort(rep(1:10,12))),f1=gl(2,6,120),f2=as.factor(sort(rep(1:6,20))))
-df$y1=sort(rnorm(120))
+df <- data.frame(id=as.factor(sort(rep(1:10,12))),f1=gl(2,6,120),f2=as.factor(sort(rep(1:6,20))))
+df$y1 <- sort(rnorm(120))
 df$y2 <- as.numeric(as.character(df$f1))+rnorm(120)
 df$y3 <- as.numeric(as.character(df$f2))+rnorm(120)
 
@@ -169,7 +169,6 @@ lmerICCest(lm1,"f1")
 ggplot(df,aes(x=f1,y=y1)) + geom_boxplot(aes(col=f1))
 lmerICCest(lm1,"f2")
 ggplot(df,aes(x=f2,y=y1)) + geom_boxplot(aes(col=f2))
-
 
 
 lm2 <- lmer(y2~1 + (1|id) + (1|f1) + (1|f2),data=df)
@@ -189,6 +188,123 @@ lmerICCest(lm3,"f2")
 ggplot(df,aes(x=f2,y=y3)) + geom_boxplot(aes(col=f2))
 
 
+#####################################################################
+## New data to demonstrate a point about nesting.
 
+## Suppose we have 100 subjects - 25 per group (say classroom), who also work in
+## teams of 5 to solve problems.  I start with my id and dv variables first:
 
+df2 <- data.frame(id=1:100,y=c(rnorm(25,0,1),rnorm(25,.25,.5),rnorm(25,.5,2),rnorm(25,1,4)))
+str(df2)
 
+## what did I do above?  I created 25 observations for 4 groups and made the dv 
+## (y) differ between the groups by specifying a different mean and standard 
+## deviation for each group.  The data were generated at random using those 
+## different distributional parameters.  Group 1 has a mean of 0, SD of 1; group
+## 2 has a .25 mean with .5 SD and so on.  We have the makings for a main effect
+## between groups, right?  I have not created the grouping variable so I will do
+## that now.
+
+df2$classrm <- gl(4,25,100)
+
+## check out the data now and make sure the groups are setup as I described
+## above.  Remember, you can view the data.frame, check the structure, or run a
+## summary on it to check.  What we want to ensure is that the first 25
+## observations have a "1," the next 25 hav a "2" and so on.
+
+## if the data check out, now we want to form the groups of 5.  Before doing so,
+## we ought to devise a plan.  Suppose we have some groups that are really good 
+## and others that are not so good.  We could arrange for those differences to
+## come out by ranking the values observed by big group (1-4) and then assigning
+## the top performers to the same group, the next to group 2, and so on.
+
+URDR <- by(df2$y,df2$classrm,order)
+groups <- list(1:25,26:50,51:75,76:100)
+df2$grpRNK <- NA ## setup a vector of NA's
+
+for (i in 1:4){
+  df2$grpRNK[groups[[i]]] <- URDR[[i]]
+}
+
+library(car)
+df2$wkgrp <- recode(df2$grpRNK,"1:5=1; 6:10=2; 11:15=3; 16:20=4; 21:25=5",F,T)
+table(df2$classrm,df2$wkgrp) ## check design - fully crossed, right?
+
+library(lme4)
+
+lm00 <- lmer(y~1+(1|classrm),data=df2)
+lm01 <- lmer(y~1+(1|classrm)+(1|wkgrp),data=df2)
+lm02 <- lmer(y~1 + (1|wkgrp),data=df2)
+anova(lm00,lm01) ## lower BIC wins - and not sign different.  Always keep the simplest, most parsimonious model
+
+## don't forget to reload the lmerICCest() function from above
+lmerICCest(lm00,"classrm")
+lmerICCest(lm01,"classrm")
+lmerICCest(lm01,"wkgrp")
+lmerICCest(lm02,"wkgrp")
+
+## NOTE:  Even though we have a group level effect for classroom, we still do
+## not have a high ICC.  We see a small amount of variance by wkgrp but that
+## comes after really pushing for a big difference between groups within
+## classrom.
+
+## I want you two to start manipulating data so you can see how difficult it is 
+## to find these types of nesting effects.  It takes a ton of an effect to make 
+## much difference.  Also, try chaning the number of groups within the 
+## classroom.  Suppose you have groups of 2 (dyads) and you pair one strong 
+## person with a weak or a "high" with a "low."  What happens?  The more
+## comfortable you get with making these datasets, the more you will realize
+## that these effects are hard to observe.
+
+outdat <- data.frame(Xdiff=NA,Vdiff=NA,ICC=NA) ## storage container for results
+for (i in seq(0,5,by=.1)){ # manipulate Xdiff
+  for (j in seq(0,5,by=.1)){ # manipulate Vdiff
+    tmp <- data.frame(id=gl(3,5),time=rep(1:5,3),y=c(rnorm(5,0,1),rnorm(5,0+i,j),rnorm(5,0+2*i,j*2))) # data for lmer
+    outdat <- rbind(outdat,c(i,j,lmerICCest(lmer(y~1+(1|id),data=tmp),"id"))) # create output and merge with container
+  }
+}
+outdat <- outdat[-1,]
+ggplot(outdat,aes(x=Xdiff,y=ICC,colour=as.factor(Vdiff))) + geom_smooth()
+
+devtools::install_github('hadley/ggplot2')
+devtools::install_github("ropensci/plotly")
+library(ggplot2)
+library(plotly)
+
+p <- ggplot(outdat,aes(x=as.factor(Xdiff),y=as.factor(Vdiff))) + geom_tile(aes(fill=ICC))
+p
+pp <- ggplotly(p)
+pp
+
+q <- ggplot(outdat,aes(x=Xdiff,y=ICC,colour=as.factor(Vdiff))) + geom_smooth()
+pq <- ggplotly(q)
+pq
+
+lm1 <- lm(ICC~Xdiff*Vdiff,data=outdat)
+summary(lm1)
+
+### new discussion on 5/25/17 for our first foray into conditioning variables
+
+base <- seq(2,10,by=2)+rnorm(5)
+base
+
+dat <- data.frame(id=gl(4,5),time=rep(1:5,4),y=c(base+1*rnorm(5),base+2*rnorm(5,1,1),base+3*rnorm(5,2,1),base+4*rnorm(5,3,1)))
+dat$p1 <- sort(rnorm(20)) + rnorm(20)
+dat
+library(lme4)
+library(lmerTest)
+lmer0 <- lmer(y~1 + (1|id),data=dat)
+summary(lmer0)
+lmerICCest(lmer0,"id") ## we are done with ICC's - permission granted to move to the conditional model
+lmer1 <- lmer(y~time + (1|id),data=dat) ## time is a fixed effect
+summary(lmer1)
+anova(lmer0,lmer1) # nested model comparison
+lmer2a <- lmer(y~ time + (time|id),data=dat) ## time is both fixed and random
+summary(lmer2a)
+anova(lmer1,lmer2a)
+lmer2b <- lmer(y~ 1 + (time|id),data=dat)
+anova(lmer1,lmer2b)
+lmer2c <- lmer(y~ (time|id),data=dat)
+anova(lmer1,lmer2c)
+
+## your homework:  Figure out the formulas above.
